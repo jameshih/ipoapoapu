@@ -1,4 +1,9 @@
-const options = {
+import fetch from 'isomorphic-unfetch';
+
+export default function handler(req, res) {
+  const { query: { address } } = req;
+
+ const options = {
   method: 'GET',
   headers: {
     accept: 'application/json',
@@ -6,61 +11,42 @@ const options = {
   }
 }
 
-export default function handler(req, res) {
-  const {address} = req.query;
-  const eventIds = [];
-  const owners = {};
-
-  fetch(`https://api.poap.tech/actions/scan/${address}`, options)
-    .then(response => response.json())
-    .then(data => {
-      data.forEach(item => {
-        eventIds.push(item.event.id);
-      });
-      return eventIds;
-    })
-    .then(ids => Promise.all(ids.map(id => {
-      const ownerIds = [];
-      let total = 0;
-      let offset = 0;
-      let limit = 300;
-
-      const getOwners = () => {
-        return fetch(`https://api.poap.tech/event/${id}/poaps?limit=${limit}&offset=${offset}`, options)
-          .then(response => response.json())
-          .then(data => {
-            total = data.total;
-            data.tokens.forEach(token => {
-              ownerIds.push(token.owner.id);
-            });
-            offset += limit;
-            limit = total - offset > limit ? limit : total - offset;
-            if (offset < total) {
-              return getOwners();
-            } else {
-              owners[id] = ownerIds;
-            }
-          });
-      };
-
-      return getOwners();
-    })))
-    .then(() => {
-      const result = [];
-      Object.keys(owners).forEach(ownerId => {
-        owners[ownerId].forEach(eventId => {
-          if (!result[ownerId]) {
-            result[ownerId] = { ownerId, eventIds: [eventId] };
-          } else {
-            result[ownerId].eventIds.push(eventId);
+  const scanUrl = `https://api.poap.tech/actions/scan/${address}`;
+  fetch(scanUrl, options)
+    .then(res => res.json())
+    .then(async (scanData) => {
+      const events = [];
+      for (const { event: { id: eventId } } of scanData) {
+        let eventUrl = `https://api.poap.tech/event/${eventId}/poaps`;
+        let eventOwners = [];
+        let total = 1;
+        let offset = 0;
+        let limit = 300;
+        while (offset < total) {
+          const eventRes = await fetch(`${eventUrl}?offset=${offset}&limit=${limit}`, options);
+          const eventJson = await eventRes.json();
+          total = eventJson.total;
+          offset += limit;
+          eventOwners.push(...eventJson.tokens.map(token => token.owner.id));
+        }
+        events.push({ eventId, eventOwners });
+      }
+      const owners = {};
+      for (const { eventId, eventOwners } of events) {
+        for (const owner of eventOwners) {
+          if (!owners[owner]) {
+            owners[owner] = [];
           }
-        });
-      });
-      result.sort((a, b) => b.eventIds.length - a.eventIds.length);
-      res.status(200).json(result);
+          owners[owner].push(eventId);
+        }
+      }
+      const sortedOwners = Object.entries(owners)
+        .sort((a, b) => b[1].length - a[1].length)
+        .map(([ownerId, events]) => ({ ownerId, events }));
+      res.status(200).json(sortedOwners);
     })
     .catch(error => {
       console.error(error);
-      res.status(500).send('Something went wrong');
+      res.status(500).json({ error: 'Internal Server Error' });
     });
 }

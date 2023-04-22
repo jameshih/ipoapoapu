@@ -51,7 +51,7 @@ export default function Home() {
                 </span>
               </div>
               <div className="absolute top-12 -left-8">
-                {item.eventIds.map((eventId) => (
+                {item.events.map((eventId) => (
                   <div
                     key={eventId}
                     className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center cursor-pointer hover:bg-green-600"

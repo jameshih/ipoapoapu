@@ -1,74 +1,80 @@
 import { useState } from 'react';
+import Head from 'next/head';
+//import fetch from 'isomorphic-unfetch';
 
-export default function Home() {
-  const [address, setAddress] = useState('');
-  const [result, setResult] = useState([]);
-  const [isLoading, setIsLoading] = useState(false);
+const Circle = ({ text, color }) => (
+  <div className={`h-8 w-8 flex items-center justify-center rounded-full bg-${color}-500 hover:bg-${color}-700 text-white font-bold text-sm cursor-pointer`}>
+    <span className="hidden">{text}</span>
+  </div>
+);
 
-  const handleSearch = async () => {
-    setIsLoading(true);
+const Loader = () => (
+  <div className="flex items-center justify-center h-screen">
+    <div className="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-gray-900"></div>
+  </div>
+);
+
+const ResultList = (owners ) => (
+  <div className="my-4">
+    {owners.length > 0 ? (
+      owners.map((owner) => (
+        <div key={owner.ownerId} className="flex items-center space-x-4 mb-4">
+          <Circle text={owner.ownerId} color="orange" />
+          {owner.events.map((event) => (
+            <Circle key={event} text={event} color="blue" />
+          ))}
+        </div>
+      ))
+    ) : (
+      <p>No result found.</p>
+    )}
+  </div>
+);
+
+const Search = () => {
+  const [loading, setLoading] = useState(false);
+  const [owners, setOwners] = useState([]);
+
+  const handleSearch = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    const query = e.target.elements.query.value;
     try {
-      const response = await fetch(`/api/search?address=${address}`);
-      const data = await response.json();
-      setResult(data);
+      const res = await fetch(`/api/search?address=${query}`);
+      setOwners(res.data);
     } catch (error) {
       console.error(error);
-      setResult([]);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen py-2">
-      <input
-        type="text"
-        value={address}
-        onChange={(e) => setAddress(e.target.value)}
-        placeholder="Enter an address"
-        className="px-4 py-2 rounded-md border-gray-300 focus:outline-none focus:ring focus:border-blue-300"
-      />
-      <button
-        onClick={handleSearch}
-        className="mt-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 focus:outline-none focus:ring focus:border-blue-300"
-      >
-        Search
-      </button>
-      {isLoading && (
-        <div className="flex mt-4 space-x-4">
-          <div className="w-8 h-8 animate-pulse bg-gray-500 rounded-full"></div>
-          <div className="w-8 h-8 animate-pulse bg-gray-500 rounded-full"></div>
-          <div className="w-8 h-8 animate-pulse bg-gray-500 rounded-full"></div>
-        </div>
-      )}
-      {!isLoading && result.length > 0 && (
-        <div className="flex mt-4 space-x-4">
-          {result.map((item) => (
-            <div key={item.ownerId} className="relative">
-              <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center cursor-pointer hover:bg-blue-600">
-                <span className="text-white font-bold text-sm">
-                  {item.ownerId}
-                </span>
-              </div>
-              <div className="absolute top-12 -left-8">
-                {item.events.map((eventId) => (
-                  <div
-                    key={eventId}
-                    className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center cursor-pointer hover:bg-green-600"
-                  >
-                    <span className="text-white font-bold text-sm">
-                      {eventId}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-      {!isLoading && result.length === 0 && (
-        <div className="mt-4 text-gray-500">No results found.</div>
-      )}
+    <div className="w-full max-w-lg mx-auto">
+      <form onSubmit={handleSearch} className="flex">
+        <input name="query" type="text" className="w-full border border-gray-400 py-2 px-3 rounded-l-lg" placeholder="Enter an ENS or Ethereum address" />
+        <button type="submit" className="bg-gray-800 hover:bg-gray-900 text-white font-bold py-2 px-4 rounded-r-lg">
+          Search
+        </button>
+      </form>
+      {loading ? <Loader /> : <ResultList owners={owners} />}
     </div>
   );
-}
+};
+
+const Home = () => (
+  <div>
+    <Head>
+      <title>ipoapoapu</title>
+      <link rel="icon" href="/favicon.ico" />
+    </Head>
+
+    <div className="bg-gray-100 min-h-screen">
+      <div className="container mx-auto py-8">
+        <Search />
+      </div>
+    </div>
+  </div>
+);
+
+export default Home;

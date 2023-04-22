@@ -13,6 +13,7 @@ Instructions
 /api/search?address=Enter_ENS_or_Address
 ```
 
+<img src="./assets/api.png" width="300"/>
 
 
 Todos 
